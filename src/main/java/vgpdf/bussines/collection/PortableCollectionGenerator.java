@@ -1,6 +1,7 @@
 package vgpdf.bussines.collection;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +10,7 @@ import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 
 import org.apache.log4j.Logger;
@@ -24,6 +26,7 @@ import org.apache.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecifica
 import org.apache.pdfbox.pdmodel.common.filespecification.PDEmbeddedFile;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import vgpdf.common.service.config.Constantes;
 
@@ -37,14 +40,25 @@ public class PortableCollectionGenerator {
 		try (PDDocument doc = new PDDocument()) {
 		    PDPage page = new PDPage();
 		    doc.addPage(page);
-		
-		    try (PDPageContentStream contentStream = new PDPageContentStream(doc, page)) {
+
+		     try (PDPageContentStream contentStream = new PDPageContentStream(doc, page)) {
 		        contentStream.beginText();
 		        contentStream.setFont(new PDType1Font(FontName.HELVETICA), 12);
 		        contentStream.newLineAtOffset(100, 700);
 		        contentStream.showText("Example of a portable collection");
 		        contentStream.endText();
 		    }
+		    
+		 // Generar y añadir miniaturas de cada archivo PDF
+            List<File> thumbnailFiles = new ArrayList<>();
+            for (Path pdfPath : pdfFiles) {
+                File thumbnail = ThumbnailGenerator.generateThumbnail(pdfPath, 100, 100);
+                thumbnailFiles.add(thumbnail);
+            }
+
+            // Añadir las miniaturas como una página de vista en el documento
+            addThumbnailsToPDF(doc, thumbnailFiles);
+		    
 		
 		    PDEmbeddedFilesNameTreeNode efTree = new PDEmbeddedFilesNameTreeNode();
 		    Map<String, PDComplexFileSpecification> map = new HashMap<>();
@@ -63,14 +77,14 @@ public class PortableCollectionGenerator {
 		    doc.getDocumentCatalog().setNames(names);
 		    doc.getDocumentCatalog().setPageMode(PageMode.USE_ATTACHMENTS);
 		
-		    COSDictionary collectionDic = createCollectionDictionary();
+		    /*COSDictionary collectionDic = createCollectionDictionary();
 		    doc.getDocumentCatalog().getCOSObject().setItem(COSName.COLLECTION, collectionDic);
 		    doc.getDocumentCatalog().setVersion("1.7");
 		
 		    for (PDComplexFileSpecification fs : map.values()) {
 		        COSDictionary ciDict = createCollectionItemDictionary(fs);
 		        fs.getCOSObject().setItem(COSName.CI, ciDict);
-		    }
+		    }*/
 		
 		    
 		    Path output = Paths.get(Constantes.OUT_PATH + directory.getFileName().toString() + ".pdf");
@@ -102,24 +116,6 @@ public class PortableCollectionGenerator {
 		 
 		 return file;
 	 }
-
-    private static PDComplexFileSpecification createPdfFileSpecification(Path filePath, PDDocument doc, String fileName, String fileDescription) throws IOException {
-        PDComplexFileSpecification fs = new PDComplexFileSpecification();
-        fs.setFile(fileName);
-        fs.setFileUnicode(fileName);
-
-        byte[] data = Files.readAllBytes(filePath);
-        PDEmbeddedFile ef = new PDEmbeddedFile(doc, new ByteArrayInputStream(data), COSName.FLATE_DECODE);
-        ef.setSubtype("application/pdf");
-        ef.setSize(data.length);
-        ef.setCreationDate(new GregorianCalendar());
-
-        fs.setEmbeddedFile(ef);
-        fs.setEmbeddedFileUnicode(ef);
-        fs.setFileDescription(fileDescription);
-
-        return fs;
-    }
 
     private static COSDictionary createCollectionDictionary() {
         COSDictionary collectionDic = new COSDictionary();
@@ -167,6 +163,35 @@ public class PortableCollectionGenerator {
         ciDict.setInt("fieldthree", fs.getEmbeddedFile().getSize());
         return ciDict;
     }
+    
+    public static void addThumbnailsToPDF(PDDocument document, List<File> thumbnailFiles) throws IOException {
+	    PDPage thumbnailPage = new PDPage();
+	    document.addPage(thumbnailPage);
+	
+	    try (PDPageContentStream contentStream = new PDPageContentStream(document, thumbnailPage)) {
+	        contentStream.beginText();
+	        contentStream.setFont(new PDType1Font(FontName.HELVETICA), 12);
+	        contentStream.newLineAtOffset(50, 750);
+	        contentStream.showText("Miniaturas de Archivos Embebidos:");
+	        contentStream.endText();
+	
+	        int x = 50;
+	        int y = 700;
+	        int thumbnailSize = 100;
+	
+	        for (File thumbnailFile : thumbnailFiles) {
+	            PDImageXObject image = PDImageXObject.createFromFile(thumbnailFile.getAbsolutePath(), document);
+	            contentStream.drawImage(image, x, y, thumbnailSize, thumbnailSize);
+	
+	            // Ajustar posición para la siguiente miniatura
+	            x += thumbnailSize + 20;
+	            if (x > 500) {
+	                x = 50;
+	                y -= thumbnailSize + 20;
+	            }
+	        }
+	    }
+	}
 	        
 }
 	        
@@ -176,7 +201,7 @@ public class PortableCollectionGenerator {
 	        
 	        
 	        
-	        
+	
 	        
 	        
 	        

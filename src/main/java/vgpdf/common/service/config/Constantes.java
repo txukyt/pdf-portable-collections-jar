@@ -12,6 +12,6 @@ public class Constantes {
 	
 	public static String OUT_PATH = properties.getProperty("app.collection.path").trim();
 	
+	public static String THUMBNAILS_PATH = properties.getProperty("app.thumbnails.path").trim();
 	
-
 }
